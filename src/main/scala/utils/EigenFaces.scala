@@ -11,32 +11,6 @@ import cern.colt.matrix.impl.DenseDoubleMatrix2D
  */
 object EigenFaces {
 
-  /**
-   * Convenience method for computing the average face of multiple faces.
-   * @param pixelMatrix
-   */
-  def computeAverageFace(pixelMatrix: Array[Array[Double]]): Array[Double] = MatrixHelpers.computeMeanColumn(pixelMatrix)
-
-
-
-  /**
-   * Computes the EigenFaces matrix using a pixel matrix of multiple images.
-   * @param pixelMatrix
-   * @param meanColumn
-   */
-  def computeEigenFaces(pixelMatrix: Array[Array[Double]], meanColumn: Array[Double]): DoubleMatrix2D = {
-    /* Assume N samples and M pixels per sample */
-
-    /* Gamma is the vector of individual pixel intensity values of an individual image */
-    /* Psi is the vector of average pixel intensity values over the entire sample set */
-    /* Phi is the vector of normalized pixel intensity values of an individual image (Gamme - Psi) */
-    /* diffMatrix should correspond to an (M x N) = (36000 x 50) matrix */
-    val diffMatrix = MatrixHelpers.computeDifferenceMatrixPixels(pixelMatrix, meanColumn)
-
-    val eigenVectors = MatrixHelpers.shortcutComputeEigenVectors(diffMatrix)
-    computeEigenFaces(eigenVectors, diffMatrix)
-  }
-
   def computeEigenFaces_2(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
 
     // (M x N) = (36000 x 50)
@@ -46,34 +20,6 @@ object EigenFaces {
     val eigenFaces : Array[EigenFace] = MatrixHelpers.computeEigenFaces(diffMatrix)
 
     eigenFaces
-  }
-
-  /**
-   * Computes the EigenFaces matrix for a dataset of Eigen vectors and a diff matrix.
-   * @param eigenVectors
-   * @param diffMatrix
-   */
-  def computeEigenFaces(eigenVectors: DoubleMatrix2D, diffMatrix: Array[Array[Double]]): DoubleMatrix2D = {
-    val pixelCount = diffMatrix.length
-    val imageCount = eigenVectors.columns()
-    val rank = eigenVectors.rows()
-    val eigenFaces = Array.ofDim[Double](pixelCount, rank)
-
-    (0 to (rank-1)).foreach { i =>
-      var sumSquare = 0.0
-      (0 to (pixelCount-1)).foreach { j =>
-        (0 to (imageCount-1)).foreach { k =>
-          eigenFaces(j)(i) += diffMatrix(j)(k) * eigenVectors.get(i,k)
-        }
-        sumSquare += eigenFaces(j)(i) * eigenFaces(j)(i)
-      }
-      var norm = Math.sqrt(sumSquare)
-      (0 to (pixelCount-1)).foreach { j =>
-        eigenFaces(j)(i) /= norm
-      }
-    }
-    val eigenFacesMatrix = new DenseDoubleMatrix2D(pixelCount, rank)
-    eigenFacesMatrix.assign(eigenFaces)
   }
 
   /**
