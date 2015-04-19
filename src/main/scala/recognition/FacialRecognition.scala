@@ -4,7 +4,7 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
-import org.apache.commons.math3.linear.Array2DRowRealMatrix
+import org.apache.commons.math3.linear.{RealMatrix, RealVector, ArrayRealVector, Array2DRowRealMatrix}
 import org.slf4j.LoggerFactory
 import utils.{MatrixHelpers, EigenFaces, ImageUtil}
 
@@ -60,23 +60,23 @@ class FacialRecognition{
       }
 
     /* e.g. M = 10000 pixels, N = 50 samples */
-    val pixelMatrixArray = trainingFaces.toArray.map { image =>
+    val trainingFacesPixelMatrixArray = trainingFaces.toArray.map { image =>
       ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
     }
 
     /* M x N */
-    val pixelMatrix = new Array2DRowRealMatrix(pixelMatrixArray).transpose()
+    val trainingFacesPixelMatrix = new Array2DRowRealMatrix(trainingFacesPixelMatrixArray).transpose()
 
     /* M x 1 */
-    val averagePixelVector = MatrixHelpers.computeMeanVector(pixelMatrix)
+    val trainingFacesMeanPixelVector = MatrixHelpers.computeMeanVector(trainingFacesPixelMatrix)
 
     /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison */
-    val eigenFaces = EigenFaces.computeEigenFaces_2(pixelMatrix, averagePixelVector).take(SELECT_TOP_N_EIGENFACES)
+    val eigenFaces = EigenFaces.computeEigenFaces(trainingFacesPixelMatrix, trainingFacesMeanPixelVector).take(SELECT_TOP_N_EIGENFACES)
 
     /* Write eigenfaces out to file for sanity checking */
     for((eigenFace, idx) <- eigenFaces.view.zipWithIndex) {
-      val eigenFaceImage = ImageUtil.reconstructImage(eigenFace.vector.getColumn(0), IMAGE_WIDTH, IMAGE_HEIGHT)
-      writeEigenface(eigenFaceImage, idx)
+      val eigenFaceBufferedImage = ImageUtil.reconstructImage(eigenFace.faceMatrix.getColumn(0), IMAGE_WIDTH, IMAGE_HEIGHT)
+      writeEigenface(eigenFaceBufferedImage, idx)
     }
 
     /* Select MATCH_AGAINST_X_FACES to match against */
@@ -90,14 +90,39 @@ class FacialRecognition{
       }
 
     /* Convert each image into its grayscale intensity values */
-    val testPixelMatrixArray = testFaces.toArray.map { image =>
-      ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
+    val testFacesPixelMatrixArray = testFaces.toArray.map { image =>
+        ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
+      } map { doubleArray =>
+        new ArrayRealVector(doubleArray)
     }
 
     /* Normalize each image against the average pixel vector of the training images */
-    /* Multiply each eigenface vector against the normalized image, yielding the weight for that image against that eigenface */
-    /* The weights form a vector, where each weight represents a contribution of that eigenface image towards building the image */
+    /* Omega */
+    val testFacesDifferencePixelMatrix : Array[RealVector] = testFacesPixelMatrixArray map { pixelVector =>
+        MatrixHelpers.computeDifferenceVectorPixels(pixelVector, trainingFacesMeanPixelVector)
+    }
 
+    /* Multiply each eigenface vector against the normalized image, yielding the weight for that image against that eigenface */
+    // For each test image
+    val weightMatrix : Array[RealVector] = testFacesDifferencePixelMatrix map { normalizedPixelVector =>
+
+      // For each eigenface we are comparing the image against
+      val weightMatrix : Array[RealMatrix] = eigenFaces map { eigenFace =>
+
+        // Map the face onto the eigenface
+        val testImagePixelMatrix: Array2DRowRealMatrix = new Array2DRowRealMatrix(normalizedPixelVector.toArray)
+
+        // EigenFaces should be [1 x N], testImagePixelMatrix should be [N x 1]
+        eigenFace.faceMatrix.transpose.multiply(testImagePixelMatrix)
+      }
+
+      new ArrayRealVector(for(weight <- weightMatrix) yield { weight.getEntry(0,0) })
+    }
+
+    /* The weights form a vector, where each weight represents a contribution of that eigenface image towards building the image */
+    val test = for(i <- 1 to 10) {
+      i * 22
+    }
 
     /* Need to stores copies of the eigenface images, the images used to train the eigenfaces, and the test images (divided into matched and unmatched)*/
 

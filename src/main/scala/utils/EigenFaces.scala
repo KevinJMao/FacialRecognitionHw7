@@ -11,10 +11,10 @@ import cern.colt.matrix.impl.DenseDoubleMatrix2D
  */
 object EigenFaces {
 
-  def computeEigenFaces_2(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
+  def computeEigenFaces(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
 
     // (M x N) = (36000 x 50)
-    val diffMatrix : RealMatrix = MatrixHelpers.computeDifferenceMatrixPixels_2(pixelMatrix, meanColumn)
+    val diffMatrix : RealMatrix = MatrixHelpers.computeDifferenceMatrixPixels(pixelMatrix, meanColumn)
 
     // (M x N) = (36000 x 50), each column is an eigenvector
     val eigenFaces : Array[EigenFace] = MatrixHelpers.computeEigenFaces(diffMatrix)

@@ -27,14 +27,19 @@ object MatrixHelpers {
     resultVector
   }
 
-  def computeDifferenceMatrixPixels_2(pixelMatrix : RealMatrix, meanVector : RealVector) : RealMatrix = {
+  def computeDifferenceMatrixPixels(pixelMatrix : RealMatrix, meanVector : RealVector) : RealMatrix = {
     val resultMatrix = new Array2DRowRealMatrix(pixelMatrix.getRowDimension, pixelMatrix.getColumnDimension)
 
     /* For each sample */
     for(colIdx <- 0 until pixelMatrix.getColumnDimension) {
-      resultMatrix.setColumnVector(colIdx, pixelMatrix.getColumnVector(colIdx).subtract(meanVector))
+      resultMatrix.setColumnVector(
+        colIdx, computeDifferenceVectorPixels(pixelMatrix.getColumnVector(colIdx), meanVector))
     }
     resultMatrix
+  }
+
+  def computeDifferenceVectorPixels(pixelVector : RealVector, meanVector : RealVector) : RealVector = {
+    pixelVector.subtract(meanVector)
   }
 
 
@@ -63,4 +68,4 @@ object MatrixHelpers {
   }
 }
 
-case class EigenFace(value : Double, vector : RealMatrix)
+case class EigenFace(value : Double, faceMatrix : RealMatrix)

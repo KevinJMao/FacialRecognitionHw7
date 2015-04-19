@@ -4,6 +4,8 @@ version := "1.0"
 
 scalaVersion := "2.10.4"
 
+resolvers += "Sonatype snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
+
 libraryDependencies ++= Seq(
   "edu.stanford.nlp"              %  "stanford-corenlp"           % "3.3.1",
   "edu.stanford.nlp"              %  "stanford-corenlp"           % "3.3.1" classifier "models",
@@ -31,3 +33,5 @@ mainClass in (Compile, run) := Some("recognition.FacialRecognition")
 val buildSettings = Defaults.defaultSettings ++ Seq(
   javaOptions += "-Xmx8G"
 )
+
+addSbtPlugin("com.github.mpeltonen" % "sbt-idea" % "1.7.0-SNAPSHOT")
