@@ -1,5 +1,7 @@
 package utils
 
+import org.apache.commons.math3.linear.{RealVector, RealMatrix, Array2DRowRealMatrix}
+
 import scala.collection.JavaConversions._
 import cern.colt.matrix.DoubleMatrix2D
 import cern.colt.matrix.impl.DenseDoubleMatrix2D
@@ -15,18 +17,35 @@ object EigenFaces {
    */
   def computeAverageFace(pixelMatrix: Array[Array[Double]]): Array[Double] = MatrixHelpers.computeMeanColumn(pixelMatrix)
 
+
+
   /**
    * Computes the EigenFaces matrix using a pixel matrix of multiple images.
    * @param pixelMatrix
    * @param meanColumn
    */
   def computeEigenFaces(pixelMatrix: Array[Array[Double]], meanColumn: Array[Double]): DoubleMatrix2D = {
-    //diffMatrix = [50 * [36000]] (PHI[1...M]) where M is the number of input samples
+    /* Assume N samples and M pixels per sample */
+
+    /* Gamma is the vector of individual pixel intensity values of an individual image */
+    /* Psi is the vector of average pixel intensity values over the entire sample set */
+    /* Phi is the vector of normalized pixel intensity values of an individual image (Gamme - Psi) */
+    /* diffMatrix should correspond to an (M x N) = (36000 x 50) matrix */
     val diffMatrix = MatrixHelpers.computeDifferenceMatrixPixels(pixelMatrix, meanColumn)
-//    val covarianceMatrix = MatrixHelpers.computeCovarianceMatrix(pixelMatrix, diffMatrix)
-//    val eigenVectors = MatrixHelpers.computeEigenVectors(covarianceMatrix)
+
     val eigenVectors = MatrixHelpers.shortcutComputeEigenVectors(diffMatrix)
     computeEigenFaces(eigenVectors, diffMatrix)
+  }
+
+  def computeEigenFaces_2(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
+
+    // (M x N) = (36000 x 50)
+    val diffMatrix : RealMatrix = MatrixHelpers.computeDifferenceMatrixPixels_2(pixelMatrix, meanColumn)
+
+    // (M x N) = (36000 x 50), each column is an eigenvector
+    val eigenFaces : Array[EigenFace] = MatrixHelpers.computeEigenFaces(diffMatrix)
+
+    eigenFaces
   }
 
   /**

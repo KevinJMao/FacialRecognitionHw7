@@ -4,8 +4,9 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
+import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.slf4j.LoggerFactory
-import utils.{EigenFaces, ImageUtil}
+import utils.{MatrixHelpers, EigenFaces, ImageUtil}
 
 import scala.util.{Failure, Random, Success, Try}
 
@@ -17,7 +18,7 @@ class FacialRecognition{
   private val IMAGE_HEIGHT = 200
   private val RNG = Random
 
-  private val EIGENFACE_FILE = "eigenface.jpg"
+  private val EIGENFACE_FILE = "eigenface"
 
   private def loadImage(filePath : String): Option[BufferedImage] = loadImage(new File(filePath))
 
@@ -32,9 +33,9 @@ class FacialRecognition{
     }
   }
 
-  private def writeEigenface(image : BufferedImage) = {
+  private def writeEigenface(image : BufferedImage, indexNumber : Int) = {
     Try {
-      ImageIO.write(image, "jpg", new File(EIGENFACE_FILE))
+      ImageIO.write(image, "jpg", new File(EIGENFACE_FILE + "_" + indexNumber + ".jpg"))
     } recover {
       case e : Throwable => logger.error("Exception thrown while writing image: {}", e)
     }
@@ -55,19 +56,32 @@ class FacialRecognition{
           new BufferedImage(0,0,BufferedImage.TYPE_CUSTOM)
       }
 
+    /* e.g. M = 10000 pixels, N = 50 samples */
     val pixelMatrix = trainingFaces.toArray.map { image =>
       ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
     }
 
-    //averagePixels = [1, 36000]
+    /* M x N */
+    val pixelMatrix_2 = new Array2DRowRealMatrix(pixelMatrix).transpose()
+
     val averagePixels = EigenFaces.computeAverageFace(pixelMatrix)
 
-    //pixelMatrix = [50 * [36000]]
-    val eigenfaceMatrix = EigenFaces.computeEigenFaces(pixelMatrix, averagePixels)
+    /* M x 1 */
+    val averagePixelVector = MatrixHelpers.computeMeanVector(pixelMatrix_2)
 
-    eigenface = Some(ImageUtil.reconstructImage(eigenfaceMatrix.toArray.flatten, IMAGE_WIDTH, IMAGE_HEIGHT))
+    val eigenFaces = EigenFaces.computeEigenFaces_2(pixelMatrix_2, averagePixelVector).take(3)
 
-    eigenface foreach { image => writeEigenface(image) }
+    for((eigenFace, idx) <- eigenFaces.view.zipWithIndex) {
+      val eigenFaceImage = ImageUtil.reconstructImage(eigenFace.vector.getColumn(0), IMAGE_WIDTH, IMAGE_HEIGHT)
+      writeEigenface(eigenFaceImage, idx)
+    }
+
+//    //pixelMatrix = [50 * [36000]]
+//    val eigenFaces = EigenFaces.computeEigenFaces(pixelMatrix, averagePixels)
+//
+//    eigenface = Some(ImageUtil.reconstructImage(eigenFaces.toArray.flatten, IMAGE_WIDTH, IMAGE_HEIGHT))
+//
+//    eigenface foreach { image => writeEigenface(image) }
   }
 }
 

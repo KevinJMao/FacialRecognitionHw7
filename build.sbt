@@ -15,7 +15,9 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka"             %% "akka-actor"                 % "2.2.3",
   "com.typesafe.akka"             %% "akka-slf4j"                 % "2.2.3",
   "org.imgscalr"                  %  "imgscalr-lib"               % "4.2",
-  "net.sourceforge.parallelcolt"  %  "parallelcolt"               % "0.10.0"
+  "net.sourceforge.parallelcolt"  %  "parallelcolt"               % "0.10.0",
+  "com.google.guava"              % "guava"                       % "18.0",
+  "org.apache.commons"            % "commons-math3"               % "3.2"
 )
 
 initialize := {
