@@ -16,6 +16,9 @@ class FacialRecognition{
 
   private val IMAGE_WIDTH = 180
   private val IMAGE_HEIGHT = 200
+  private val TRAINING_SAMPLE = 20
+  private val SELECT_TOP_N_EIGENFACES = 5
+  private val MATCH_AGAINST_X_FACES = 10
   private val RNG = Random
 
   private val EIGENFACE_FILE = "eigenface"
@@ -47,41 +50,57 @@ class FacialRecognition{
   }
 
   def run() = {
-    var trainingFaces = for {
-      i <- 1 to 10
+    val trainingFaces = for {
+      i <- 1 to TRAINING_SAMPLE
     } yield selectRandomImage match {
         case Some(image) => image
         case None =>
-          logger.error("Error while loading random image.")
+          logger.error("Error while loading random training image.")
           new BufferedImage(0,0,BufferedImage.TYPE_CUSTOM)
       }
 
     /* e.g. M = 10000 pixels, N = 50 samples */
-    val pixelMatrix = trainingFaces.toArray.map { image =>
+    val pixelMatrixArray = trainingFaces.toArray.map { image =>
       ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
     }
 
     /* M x N */
-    val pixelMatrix_2 = new Array2DRowRealMatrix(pixelMatrix).transpose()
-
-    val averagePixels = EigenFaces.computeAverageFace(pixelMatrix)
+    val pixelMatrix = new Array2DRowRealMatrix(pixelMatrixArray).transpose()
 
     /* M x 1 */
-    val averagePixelVector = MatrixHelpers.computeMeanVector(pixelMatrix_2)
+    val averagePixelVector = MatrixHelpers.computeMeanVector(pixelMatrix)
 
-    val eigenFaces = EigenFaces.computeEigenFaces_2(pixelMatrix_2, averagePixelVector).take(3)
+    /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison */
+    val eigenFaces = EigenFaces.computeEigenFaces_2(pixelMatrix, averagePixelVector).take(SELECT_TOP_N_EIGENFACES)
 
+    /* Write eigenfaces out to file for sanity checking */
     for((eigenFace, idx) <- eigenFaces.view.zipWithIndex) {
       val eigenFaceImage = ImageUtil.reconstructImage(eigenFace.vector.getColumn(0), IMAGE_WIDTH, IMAGE_HEIGHT)
       writeEigenface(eigenFaceImage, idx)
     }
 
-//    //pixelMatrix = [50 * [36000]]
-//    val eigenFaces = EigenFaces.computeEigenFaces(pixelMatrix, averagePixels)
-//
-//    eigenface = Some(ImageUtil.reconstructImage(eigenFaces.toArray.flatten, IMAGE_WIDTH, IMAGE_HEIGHT))
-//
-//    eigenface foreach { image => writeEigenface(image) }
+    /* Select MATCH_AGAINST_X_FACES to match against */
+    val testFaces = for {
+      i <- 1 to MATCH_AGAINST_X_FACES
+    } yield selectRandomImage match {
+        case Some(image) => image
+        case None =>
+          logger.error("Error hwile loading random testing image")
+          new BufferedImage(0,0, BufferedImage.TYPE_CUSTOM)
+      }
+
+    /* Convert each image into its grayscale intensity values */
+    val testPixelMatrixArray = testFaces.toArray.map { image =>
+      ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
+    }
+
+    /* Normalize each image against the average pixel vector of the training images */
+    /* Multiply each eigenface vector against the normalized image, yielding the weight for that image against that eigenface */
+    /* The weights form a vector, where each weight represents a contribution of that eigenface image towards building the image */
+
+
+    /* Need to stores copies of the eigenface images, the images used to train the eigenfaces, and the test images (divided into matched and unmatched)*/
+
   }
 }
 
