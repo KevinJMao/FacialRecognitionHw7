@@ -14,7 +14,7 @@ object EigenFaces {
   def computeEigenFaces(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
 
     // (M x N) = (36000 x 50)
-    val diffMatrix : RealMatrix = MatrixHelpers.computeDifferenceMatrixPixels(pixelMatrix, meanColumn)
+    val diffMatrix : RealMatrix = MatrixHelpers.computePixelCovariantMatrix(pixelMatrix, meanColumn)
 
     // (M x N) = (36000 x 50), each column is an eigenvector
     val eigenFaces : Array[EigenFace] = MatrixHelpers.computeEigenFaces(diffMatrix)
@@ -120,4 +120,11 @@ object EigenFaces {
     normalizedReconstructedPixels
   }
 
+  def computeImageWeightAgainstEigenFace(imagePixelVector : RealVector, trainMeanVector : RealVector, eigenFace : EigenFace) : Double = {
+    val normalizedImagePixelVector = imagePixelVector.subtract(trainMeanVector)
+    val normalizedImagePixelMatrix = new Array2DRowRealMatrix(normalizedImagePixelVector.toArray)
+
+    val resultMatrix = eigenFace.faceMatrix.transpose.multiply(normalizedImagePixelMatrix)
+    resultMatrix.getEntry(0,0)
+  }
 }

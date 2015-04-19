@@ -27,18 +27,18 @@ object MatrixHelpers {
     resultVector
   }
 
-  def computeDifferenceMatrixPixels(pixelMatrix : RealMatrix, meanVector : RealVector) : RealMatrix = {
+  def computePixelCovariantMatrix(pixelMatrix : RealMatrix, meanVector : RealVector) : RealMatrix = {
     val resultMatrix = new Array2DRowRealMatrix(pixelMatrix.getRowDimension, pixelMatrix.getColumnDimension)
 
     /* For each sample */
     for(colIdx <- 0 until pixelMatrix.getColumnDimension) {
       resultMatrix.setColumnVector(
-        colIdx, computeDifferenceVectorPixels(pixelMatrix.getColumnVector(colIdx), meanVector))
+        colIdx, computePixelCovarianceVector(pixelMatrix.getColumnVector(colIdx), meanVector))
     }
     resultMatrix
   }
 
-  def computeDifferenceVectorPixels(pixelVector : RealVector, meanVector : RealVector) : RealVector = {
+  def computePixelCovarianceVector(pixelVector : RealVector, meanVector : RealVector) : RealVector = {
     pixelVector.subtract(meanVector)
   }
 
