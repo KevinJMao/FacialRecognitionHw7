@@ -4,7 +4,8 @@ import cern.colt.matrix.DoubleMatrix2D
 import cern.colt.matrix.impl.DenseDoubleMatrix2D
 import cern.colt.matrix.linalg.EigenvalueDecomposition
 import org.apache.commons.math3.linear.{Array2DRowRealMatrix, ArrayRealVector, EigenDecomposition, RealMatrix, RealVector}
-
+import recognition.FacialRecognition
+import scala.math._
 import scala.collection.mutable
 
 /**
@@ -13,6 +14,12 @@ import scala.collection.mutable
  * @note Adapted from https://github.com/fredang/mahout-eigenface-example.
  */
 object MatrixHelpers {
+  def computeWeightedVector(vectorWeightPairs : Array[(RealVector, Double)]) : RealVector = {
+    vectorWeightPairs reduce { (prev, curr) =>
+      prev._1.add(curr._1.mapMultiply(curr._2))
+    }
+  }
+
   /**
    * Compute the mean vector of an M X N matrix, returning a M x 1 vector
    * @param pixelMatrix
@@ -42,7 +49,6 @@ object MatrixHelpers {
     pixelVector.subtract(meanVector)
   }
 
-
   def computeEigenFaces(diffMatrix : RealMatrix) : Array[EigenFace] = {
     val eigenFaceBuffer = mutable.ArrayBuffer[EigenFace]()
 
@@ -66,6 +72,14 @@ object MatrixHelpers {
 
     eigenFaceBuffer.sortBy(_.value).reverse.toArray
   }
+
+  def computeVectorMagnitude(vector : RealVector) : Double = {
+    pow(sqrt(vector.toArray.reduce((prev, next) => prev + next * next)), 2)
+  }
 }
 
-case class EigenFace(value : Double, faceMatrix : RealMatrix)
+case class EigenFace(value : Double, faceMatrix : RealMatrix) {
+  lazy val reconstructedImage = ImageUtil.reconstructImage(faceMatrix.getColumn(0),
+    FacialRecognition.IMAGE_WIDTH,
+    FacialRecognition.IMAGE_HEIGHT)
+}

@@ -1,6 +1,7 @@
 package utils
 
-import org.apache.commons.math3.linear.{RealVector, RealMatrix, Array2DRowRealMatrix}
+import org.apache.commons.math3.linear.{ArrayRealVector, RealVector, RealMatrix, Array2DRowRealMatrix}
+import recognition.{FacialRecognition, FaceImage}
 
 import scala.collection.JavaConversions._
 import cern.colt.matrix.DoubleMatrix2D
@@ -11,7 +12,43 @@ import cern.colt.matrix.impl.DenseDoubleMatrix2D
  */
 object EigenFaces {
 
-  def computeEigenFaces(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
+
+  /* Compute _OMEGA_ */
+  def computeFaceClassWeightVector(faceImage : FaceImage,
+                                   meanPixelVector : RealVector,
+                                   eigenFaces : Array[EigenFace]) : RealVector = {
+    val pixelVector = new ArrayRealVector(ImageUtil.getNormalizedImagePixels(faceImage.image,
+      FacialRecognition.IMAGE_WIDTH,
+      FacialRecognition.IMAGE_HEIGHT))
+
+    val normalizedPixelVector = pixelVector.subtract(meanPixelVector)
+
+    val faceClassWeightVector = eigenFaces map { eigenFace =>
+      EigenFaces.computeImageWeightAgainstEigenFace(normalizedPixelVector, meanPixelVector, eigenFace)
+    }
+
+    new ArrayRealVector(faceClassWeightVector)
+  }
+
+  def convertImagesToPixelMatrix(faceImages : Array[FaceImage]) : Array2DRowRealMatrix = {
+    new Array2DRowRealMatrix(faceImages.toArray.map { face =>
+      ImageUtil.(face.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT)
+    })
+  }
+
+  def computeEigenFaces(trainFaceImages : Array[FaceImage]) : Array[EigenFace] = {
+    val trainPixel2DArray = trainFaceImages.toArray.map { faceImage =>
+      ImageUtil.getNormalizedImagePixels(faceImage.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT)
+    }
+
+    val trainPixelMatrix = new Array2DRowRealMatrix(trainPixel2DArray).transpose()
+
+    val trainMeanPixelVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
+
+    computeEigenFaces(trainPixelMatrix, trainMeanPixelVector).take(FacialRecognition.SELECT_TOP_N_EIGENFACES)
+  }
+
+  private def computeEigenFaces(pixelMatrix : RealMatrix, meanColumn : RealVector) : Array[EigenFace] = {
 
     // (M x N) = (36000 x 50)
     val diffMatrix : RealMatrix = MatrixHelpers.computePixelCovariantMatrix(pixelMatrix, meanColumn)

@@ -6,7 +6,7 @@ import javax.imageio.ImageIO
 
 import org.apache.commons.math3.linear.{RealMatrix, RealVector, ArrayRealVector, Array2DRowRealMatrix}
 import org.slf4j.LoggerFactory
-import utils.{MatrixHelpers, EigenFaces, ImageUtil}
+import utils.{EigenFace, MatrixHelpers, EigenFaces, ImageUtil}
 
 import scala.util.{Failure, Random, Success, Try}
 
@@ -14,16 +14,13 @@ class FacialRecognition{
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
   private var eigenface : Option[BufferedImage] = None
 
-  private val IMAGE_WIDTH = 180
-  private val IMAGE_HEIGHT = 200
+
   private val TRAINING_SAMPLE = 20
-  private val SELECT_TOP_N_EIGENFACES = 5
   private val MATCH_AGAINST_X_FACES = 10
+  private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 3.14
   private val RNG = Random
 
   private val EIGENFACE_FILE = "eigenface"
-
-  private def loadImage(filePath : String): Option[BufferedImage] = loadImage(new File(filePath))
 
   private def loadImage(file : File) : Option[BufferedImage] = {
     Try{
@@ -44,101 +41,105 @@ class FacialRecognition{
     }
   }
 
-  private def selectRandomImage : Option[BufferedImage] = {
-    val images = new File("faces").listFiles()
-    loadImage(images(RNG.nextInt(images.size)))
+  private def selectRandomFaceImage : Option[FaceImage] = {
+    val imageFile = new File("faces").listFiles()(RNG.nextInt(new File("faces").listFiles().size))
+    loadImage(imageFile) map { image =>
+      FaceImage(imageFile.getName, image)
+    }
+  }
+
+  private def selectNRandomImages(n : Int) : Array[FaceImage] = {
+    (for {
+      i <- 1 to n
+    } yield selectRandomFaceImage match {
+        case Some(faceImage) => faceImage
+        case None =>
+          logger.error("Error while loading random training image.")
+          FaceImage("Unavailable Image", new BufferedImage(0, 0, BufferedImage.TYPE_CUSTOM))
+      }).toArray
+  }
+
+  private def emptyDirectory(topLevelDirectory : File) : Int = {
+    var counter = 0
+    topLevelDirectory.listFiles().foreach {
+      case file : File if file.isDirectory => counter += emptyDirectory(file)
+      case other : File =>
+        other.delete()
+        counter += 1
+    }
+    counter
   }
 
   def run() = {
-    val trainFaces = for {
-      i <- 1 to TRAINING_SAMPLE
-    } yield selectRandomImage match {
-        case Some(image) => image
-        case None =>
-          logger.error("Error while loading random training image.")
-          new BufferedImage(0,0,BufferedImage.TYPE_CUSTOM)
-      }
+    /* Our set of training faces */
+    val trainFaceImages : Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
 
-    /* e.g. M = 10000 pixels, N = 50 samples */
-    val trainPixel2DArray = trainFaces.toArray.map { image =>
-      ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
+    /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison (u_i) */
+    val eigenFaceArray : Array[EigenFace] = EigenFaces.computeEigenFaces(trainFaceImages.toArray)
+
+    /* A matrix of the pixel intensity values of each image. Each column corresponds to a single image. (Set of all _GAMMA_) */
+    val trainPixelMatrix : Array2DRowRealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
+
+    /* The mean column-wise vector of the normalized pixel matrix (PSI) */
+    val trainMeanPixelVector : RealVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
+
+    /* The set of class vectors for each individual image (_OMEGA_k) */
+    val trainClassPatternVectors : Array[(FaceImage, RealVector)] = trainFaceImages map { faceImage =>
+      (faceImage, EigenFaces.computeFaceClassWeightVector(faceImage, trainMeanPixelVector, eigenFaceArray))
+    }
+    /* Our set of testing faces */
+    val testFaceImages : Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
+
+    /* The pattern vector for every test face image (_OMEGA_) */
+    val testFacePatternVectors : Array[(FaceImage, RealVector)] = testFaceImages map { faceImage =>
+      (faceImage, EigenFaces.computeFaceClassWeightVector(faceImage, trainMeanPixelVector, eigenFaceArray))
     }
 
-    /* M x N */
-    val trainPixelMatrix = new Array2DRowRealMatrix(trainPixel2DArray).transpose()
+    /* For each new face image to be identified, calculate its pattern vector _Omega_, the distances _epsilon_i_ to each known class, and the distance _epsilon_ to the face space */
+    testFacePatternVectors foreach { testPatternVectorPair =>
+      /* The best _EPSILON_k we could find */
+      val classVectorMagnitude = (trainClassPatternVectors map { trainPatternVectorPair =>
+        (testPatternVectorPair._1, MatrixHelpers.computeVectorMagnitude(trainPatternVectorPair._2.subtract(trainPatternVectorPair._2)))
+      }).sortBy(_._2).reverse.head
 
-    /* M x 1 */
-    val trainMeanPixelVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
+      /* Normalized pixel vector of the test image */
+      val normalizedPixelVector = testPatternVectorPair._2.subtract(trainMeanPixelVector
+      )
+      /* Weighted sum of all of the eigenface vectors */
+      val weightedEigenFaceVector = MatrixHelpers.computeWeightedVector(
+        eigenFaceArray map {
+          eigenFace => eigenFace.faceMatrix.getColumnVector(0)
+        } zip testPatternVectorPair._2.toArray)
 
-    /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison */
-    val eigenFaceArray = EigenFaces.computeEigenFaces(trainPixelMatrix, trainMeanPixelVector).take(SELECT_TOP_N_EIGENFACES)
+      /* The best _EPSILON_ we could find */
+      val faceSpaceProjectionMagnitude = MatrixHelpers.computeVectorMagnitude(weightedEigenFaceVector)
 
-    /* Generate a reference weight vector to measure test faces against each face class */
-    /* Take the training matrix and convert it into an array of vectors */
-    /* Normalize each vector against the mean pixel vector */
-    val trainNormalizedPixelVectorArray : Array[RealVector] = for(idx <- trainPixelMatrix.getColumnDimension) yield {
-      trainPixelMatrix.getColumnVector(idx).subtract(trainMeanPixelVector)
     }
-
-    /* Determine the mean class vector by which to match new faces against */
-    val meanClassVector = trainNormalizedPixelVectorArray map { pixelVector =>
-      new ArrayRealVector(
-        eigenFaceArray map { eigenFace =>
-          EigenFaces.computeImageWeightAgainstEigenFace(pixelVector, trainMeanPixelVector, eigenFace)
-        })
-    } reduce {(current, next) =>
-      current.add(next)
-    } mapDivide(trainNormalizedPixelVectorArray.length)
-
-    /* Derive the average of all resultant vectors to yield the average class vector */
-
-    /* Take the mean of all vectors belonging to an individual eigenface, this is the face class by which to compare all future mappings */
-
-
-    /* Select MATCH_AGAINST_X_FACES to match against */
-    val testFaces = for {
-      i <- 1 to MATCH_AGAINST_X_FACES
-    } yield selectRandomImage match {
-        case Some(image) => image
-        case None =>
-          logger.error("Error hwile loading random testing image")
-          new BufferedImage(0,0, BufferedImage.TYPE_CUSTOM)
-      }
-
-    /* Convert each image into its grayscale intensity values */
-    val testPixelVectorArray = testFaces.toArray.map { image =>
-      ImageUtil.getNormalizedImagePixels(image, IMAGE_WIDTH, IMAGE_HEIGHT)
-    } map { doubleArray =>
-      new ArrayRealVector(doubleArray)
-    }
-
-    /* Normalize each image against the average pixel vector of the training images */
-    /* Omega */
-    val testPixelCovarianceVectorArray : Array[RealVector] = testPixelVectorArray map { pixelVector =>
-      MatrixHelpers.computePixelCovarianceVector(pixelVector, trainMeanPixelVector)
-    }
-
-    val testFaceClassWeightVectorArray = testPixelCovarianceVectorArray map { normalizedPixelVector =>
-      new ArrayRealVector(eigenFaceArray map { eigenFace =>
-        EigenFaces.computeImageWeightAgainstEigenFace(normalizedPixelVector, trainMeanPixelVector, eigenFace)
-      })
-    }
-
-    /* The weights form a vector, where each weight represents a contribution of that eigenface image towards building the image */
-    testFaceClassWeightVectorArray
 
     /* Need to stores copies of the eigenface images, the images used to train the eigenfaces, and the test images (divided into matched and unmatched)*/
 
 
     /* Write eigenfaces out to file for sanity checking */
     for((eigenFace, idx) <- eigenFaceArray.view.zipWithIndex) {
-      val eigenFaceBufferedImage = ImageUtil.reconstructImage(eigenFace.faceMatrix.getColumn(0), IMAGE_WIDTH, IMAGE_HEIGHT)
+      val eigenFaceBufferedImage = ImageUtil.reconstructImage(eigenFace.faceMatrix.getColumn(0),
+        FacialRecognition.IMAGE_WIDTH,
+        FacialRecognition.IMAGE_HEIGHT)
       writeEigenface(eigenFaceBufferedImage, idx)
     }
   }
 }
 
+case class FaceImage(fileName : String, image : BufferedImage) {
+  //pixelMatrix
+  def pixelVector : RealVector = new ArrayRealVector(
+    ImageUtil.getNormalizedImagePixels(image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT))
+}
+
 object FacialRecognition extends App {
+  val SELECT_TOP_N_EIGENFACES = 5
+  val IMAGE_WIDTH = 180
+  val IMAGE_HEIGHT = 200
+
   override def main(args: Array[String]): Unit = {
     new FacialRecognition().run
   }
