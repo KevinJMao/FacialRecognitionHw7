@@ -19,6 +19,7 @@ class FacialRecognition{
   private val MATCH_AGAINST_X_FACES = 10
   private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 3.14
   private val RNG = Random
+  private val MAX_PROJECTION_MAGNITUDE = 2.17
 
   private val EIGENFACE_FILE = "eigenface"
 
@@ -34,10 +35,14 @@ class FacialRecognition{
   }
 
   private def writeEigenface(image : BufferedImage, indexNumber : Int) = {
+    writeImage(image, "images/eigenFaces/" + EIGENFACE_FILE + "_" + indexNumber + ".jpg")
+  }
+
+  private def writeImage(image : BufferedImage, location : String) = {
     Try {
-      ImageIO.write(image, "jpg", new File(EIGENFACE_FILE + "_" + indexNumber + ".jpg"))
+      ImageIO.write(image, "jpg", new File(location))
     } recover {
-      case e : Throwable => logger.error("Exception thrown while writing image: {}", e)
+      case e : Throwable => logger.error("Exception thrown while writing image: {}" , e)
     }
   }
 
@@ -97,7 +102,7 @@ class FacialRecognition{
 
     /* For each new face image to be identified, calculate its pattern vector _Omega_, the distances _epsilon_i_ to each known class, and the distance _epsilon_ to the face space */
     testFacePatternVectors foreach { testPatternVectorPair =>
-      /* The best _EPSILON_k we could find */
+      /* The minimum _EPSILON_k we could find */
       val classVectorMagnitude = (trainClassPatternVectors map { trainPatternVectorPair =>
         (testPatternVectorPair._1, MatrixHelpers.computeVectorMagnitude(trainPatternVectorPair._2.subtract(trainPatternVectorPair._2)))
       }).sortBy(_._2).reverse.head
@@ -111,8 +116,17 @@ class FacialRecognition{
           eigenFace => eigenFace.faceMatrix.getColumnVector(0)
         } zip testPatternVectorPair._2.toArray)
 
-      /* The best _EPSILON_ we could find */
+      /* _EPSILON_ */
       val faceSpaceProjectionMagnitude = MatrixHelpers.computeVectorMagnitude(weightedEigenFaceVector)
+
+
+      if(faceSpaceProjectionMagnitude < MAX_PROJECTION_MAGNITUDE
+        && classVectorMagnitude._2 < MAX_ALLOWABLE_FACE_CLASS_DISTANCE) {
+        writeImage(testPatternVectorPair._1.image, "images/testFaces/matched/" + testPatternVectorPair._1.fileName)
+      }
+      else {
+        writeImage(testPatternVectorPair._1.image, "images/testFaces/unmatched/" + testPatternVectorPair._1.fileName)
+      }
 
     }
 

@@ -15,9 +15,14 @@ import scala.collection.mutable
  */
 object MatrixHelpers {
   def computeWeightedVector(vectorWeightPairs : Array[(RealVector, Double)]) : RealVector = {
-    vectorWeightPairs reduce { (prev, curr) =>
-      prev._1.add(curr._1.mapMultiply(curr._2))
+    val weightedVectors = vectorWeightPairs map { pair =>
+      val vector = pair._1
+      val weight = pair._2
+
+      vector.mapMultiply(weight)
     }
+
+    weightedVectors reduce { (prev, curr) => prev.add(curr) }
   }
 
   /**

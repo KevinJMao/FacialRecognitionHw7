@@ -11,7 +11,11 @@ import cern.colt.matrix.impl.DenseDoubleMatrix2D
  * Helper object for creating EigenFaces from matrices.
  */
 object EigenFaces {
-
+  def computeWeightedVector(vectorWeightPairs : Array[(RealVector, Double)]) : RealVector = {
+    vectorWeightPairs map {
+      pair => pair._1.mapMultiply(pair._2)
+    } reduce  { (prev, curr) => prev.add(curr) }
+  }
 
   /* Compute _OMEGA_ */
   def computeFaceClassWeightVector(faceImage : FaceImage,
@@ -32,7 +36,7 @@ object EigenFaces {
 
   def convertImagesToPixelMatrix(faceImages : Array[FaceImage]) : Array2DRowRealMatrix = {
     new Array2DRowRealMatrix(faceImages.toArray.map { face =>
-      ImageUtil.(face.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT)
+      ImageUtil.getNormalizedImagePixels(face.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT)
     })
   }
 
