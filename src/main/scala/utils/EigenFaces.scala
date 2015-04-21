@@ -34,10 +34,10 @@ object EigenFaces {
     new ArrayRealVector(faceClassWeightVector)
   }
 
-  def convertImagesToPixelMatrix(faceImages : Array[FaceImage]) : Array2DRowRealMatrix = {
+  def convertImagesToPixelMatrix(faceImages : Array[FaceImage]) : RealMatrix = {
     new Array2DRowRealMatrix(faceImages.toArray.map { face =>
       ImageUtil.getNormalizedImagePixels(face.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT)
-    })
+    }).transpose
   }
 
   def computeEigenFaces(trainFaceImages : Array[FaceImage]) : Array[EigenFace] = {

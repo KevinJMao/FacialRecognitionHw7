@@ -8,6 +8,8 @@ import org.apache.commons.math3.linear.{RealMatrix, RealVector, ArrayRealVector,
 import org.slf4j.LoggerFactory
 import utils.{EigenFace, MatrixHelpers, EigenFaces, ImageUtil}
 
+import scala.math.sqrt
+
 import scala.util.{Failure, Random, Success, Try}
 
 class FacialRecognition{
@@ -15,11 +17,11 @@ class FacialRecognition{
   private var eigenface : Option[BufferedImage] = None
 
 
-  private val TRAINING_SAMPLE = 10
-  private val MATCH_AGAINST_X_FACES = 2
-  private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 3.14
+  private val TRAINING_SAMPLE = 20
+  private val MATCH_AGAINST_X_FACES = 20
+  private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
   private val RNG = Random
-  private val MAX_PROJECTION_MAGNITUDE = 2.17
+  private val MAX_PROJECTION_MAGNITUDE = 5e13
 
   private val EIGENFACE_FILE = "eigenface"
 
@@ -81,7 +83,7 @@ class FacialRecognition{
     /* Our set of training faces */
     val trainFaceImages : Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
 
-    writeFaceImagesToFile(trainFaceImages, "images/facePool/")
+    writeFaceImagesToFile(trainFaceImages, "images/trainingFaces/")
 
     /* Our set of testing faces */
     val testFaceImages : Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
@@ -92,7 +94,7 @@ class FacialRecognition{
     writeEigenFacesToFile(eigenFaceArray)
 
     /* A matrix of the pixel intensity values of each image. Each column corresponds to a single image. (Set of all _GAMMA_) */
-    val trainPixelMatrix : Array2DRowRealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
+    val trainPixelMatrix : RealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
 
     /* The mean column-wise vector of the normalized pixel matrix (PSI) */
     val trainMeanPixelVector : RealVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
@@ -111,13 +113,15 @@ class FacialRecognition{
     /* For each new face image to be identified, calculate its pattern vector _Omega_, the distances _epsilon_i_ to each known class, and the distance _epsilon_ to the face space */
     testFacePatternVectors foreach { testPatternVectorPair =>
       /* The minimum _EPSILON_k we could find */
-      val classVectorMagnitude = (trainClassPatternVectors map { trainPatternVectorPair =>
-        (testPatternVectorPair._1, MatrixHelpers.computeVectorMagnitude(trainPatternVectorPair._2.subtract(trainPatternVectorPair._2)))
-      }).sortBy(_._2).reverse.head
+      val classVectors: Array[(FaceImage, Double)] = (trainClassPatternVectors map { trainPatternVectorPair =>
+        (trainPatternVectorPair._1, MatrixHelpers.computeVectorMagnitude(testPatternVectorPair._2.subtract(trainPatternVectorPair._2)))
+      }).sortBy(_._2)
+      val classVectorMagnitude = classVectors.head
 
       /* Normalized pixel vector of the test image */
-      val normalizedPixelVector = testPatternVectorPair._2.subtract(trainMeanPixelVector
-      )
+      val testFaceImagePixelVector = new ArrayRealVector(ImageUtil.getNormalizedImagePixels(testPatternVectorPair._1.image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT))
+      val testNormalizedImagePixelVector = testFaceImagePixelVector.subtract(trainMeanPixelVector)
+
       /* Weighted sum of all of the eigenface vectors */
       val weightedEigenFaceVector = MatrixHelpers.computeWeightedVector(
         eigenFaceArray map {
@@ -125,10 +129,13 @@ class FacialRecognition{
         } zip testPatternVectorPair._2.toArray)
 
       /* _EPSILON_ */
-      val faceSpaceProjectionMagnitude = MatrixHelpers.computeVectorMagnitude(weightedEigenFaceVector)
+      val faceSpaceProjectionMagnitude =
+        MatrixHelpers.computeVectorMagnitude(testNormalizedImagePixelVector.subtract(weightedEigenFaceVector))
+
+      val faceSpaceProjectionDistance = sqrt(faceSpaceProjectionMagnitude)
 
 
-      if(faceSpaceProjectionMagnitude < MAX_PROJECTION_MAGNITUDE
+      if(faceSpaceProjectionDistance < MAX_PROJECTION_MAGNITUDE
         && classVectorMagnitude._2 < MAX_ALLOWABLE_FACE_CLASS_DISTANCE) {
         writeImage(testPatternVectorPair._1.image, "images/testFaces/matched/" + testPatternVectorPair._1.fileName)
       }
@@ -137,11 +144,6 @@ class FacialRecognition{
       }
 
     }
-
-    /* Need to stores copies of the eigenface images, the images used to train the eigenfaces, and the test images (divided into matched and unmatched)*/
-
-
-
   }
 
   def writeFaceImagesToFile(trainFaceImages: Array[FaceImage], folder : String) {
