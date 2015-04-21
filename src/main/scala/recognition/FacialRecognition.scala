@@ -149,12 +149,8 @@ case class FaceImage(fileName : String, image : BufferedImage) {
     ImageUtil.getNormalizedImagePixels(image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT))
 }
 
-object FacialRecognition extends App {
+object FacialRecognition {
   val SELECT_TOP_N_EIGENFACES = 5
   val IMAGE_WIDTH = 180
   val IMAGE_HEIGHT = 200
-
-  override def main(args: Array[String]): Unit = {
-    new FacialRecognition().run
-  }
 }
