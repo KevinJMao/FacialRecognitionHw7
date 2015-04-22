@@ -4,17 +4,16 @@ import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
-import org.apache.commons.math3.linear.{RealMatrix, RealVector, ArrayRealVector, Array2DRowRealMatrix}
+import org.apache.commons.math3.linear.{ArrayRealVector, RealMatrix, RealVector}
 import org.slf4j.LoggerFactory
-import utils.{EigenFace, MatrixHelpers, EigenFaces, ImageUtil}
+import utils.{EigenFace, EigenFaces, ImageUtil, MatrixHelpers}
 
 import scala.math.sqrt
-
 import scala.util.{Failure, Random, Success, Try}
 
-class FacialRecognition{
+class FacialRecognition {
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
-  private var eigenface : Option[BufferedImage] = None
+  private var eigenface: Option[BufferedImage] = None
 
 
   private val TRAINING_SAMPLE = 20
@@ -25,8 +24,8 @@ class FacialRecognition{
 
   private val EIGENFACE_FILE = "eigenface"
 
-  private def loadImage(file : File) : Option[BufferedImage] = {
-    Try{
+  private def loadImage(file: File): Option[BufferedImage] = {
+    Try {
       ImageIO.read(file)
     } match {
       case Success(image) => Some(image)
@@ -36,26 +35,26 @@ class FacialRecognition{
     }
   }
 
-  private def writeEigenface(image : BufferedImage, indexNumber : Int) = {
+  private def writeEigenface(image: BufferedImage, indexNumber: Int) = {
     writeImage(image, "images/eigenFaces/" + EIGENFACE_FILE + "_" + indexNumber + ".jpg")
   }
 
-  private def writeImage(image : BufferedImage, location : String) = {
+  private def writeImage(image: BufferedImage, location: String) = {
     Try {
       ImageIO.write(image, "jpg", new File(location))
     } recover {
-      case e : Throwable => logger.error("Exception thrown while writing image: {}" , e)
+      case e: Throwable => logger.error("Exception thrown while writing image: {}", e)
     }
   }
 
-  private def selectRandomFaceImage : Option[FaceImage] = {
+  private def selectRandomFaceImage: Option[FaceImage] = {
     val imageFile = new File("faces").listFiles()(RNG.nextInt(new File("faces").listFiles().size))
     loadImage(imageFile) map { image =>
       FaceImage(imageFile.getName, image)
     }
   }
 
-  private def selectNRandomImages(n : Int) : Array[FaceImage] = {
+  private def selectNRandomImages(n: Int): Array[FaceImage] = {
     (for {
       i <- 1 to n
     } yield selectRandomFaceImage match {
@@ -66,11 +65,22 @@ class FacialRecognition{
       }).toArray
   }
 
-  private def emptyDirectory(topLevelDirectory : File) : Int = {
+  private def createDirectoriesIfNotExists() = {
+    Seq("images", "images/eigenFaces", "images/testFaces", "images/testFaces/matched", "images/testFaces/unmatched",
+      "images/trainingFaces") foreach { path =>
+      val dir = new File(path)
+      dir.exists match {
+        case false => dir.mkdir()
+        case _ =>
+      }
+    }
+  }
+
+  private def resetDirectories(topLevelDirectory: File): Int = {
     var counter = 0
     topLevelDirectory.listFiles().foreach {
-      case file : File if file.isDirectory => counter += emptyDirectory(file)
-      case other : File =>
+      case file: File if file.isDirectory => counter += resetDirectories(file)
+      case other: File =>
         other.delete()
         counter += 1
     }
@@ -78,35 +88,35 @@ class FacialRecognition{
   }
 
   def run() = {
-    emptyDirectory(new File("images"))
+    createDirectoriesIfNotExists()
+    resetDirectories(new File("images"))
 
     /* Our set of training faces */
-    val trainFaceImages : Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
+    val trainFaceImages: Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
 
     writeFaceImagesToFile(trainFaceImages, "images/trainingFaces/")
 
     /* Our set of testing faces */
-    val testFaceImages : Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
+    val testFaceImages: Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
 
     /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison (u_i) */
-    val eigenFaceArray : Array[EigenFace] = EigenFaces.computeEigenFaces(trainFaceImages.toArray)
+    val eigenFaceArray: Array[EigenFace] = EigenFaces.computeEigenFaces(trainFaceImages.toArray)
 
     writeEigenFacesToFile(eigenFaceArray)
 
     /* A matrix of the pixel intensity values of each image. Each column corresponds to a single image. (Set of all _GAMMA_) */
-    val trainPixelMatrix : RealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
+    val trainPixelMatrix: RealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
 
     /* The mean column-wise vector of the normalized pixel matrix (PSI) */
-    val trainMeanPixelVector : RealVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
+    val trainMeanPixelVector: RealVector = MatrixHelpers.computeMeanVector(trainPixelMatrix)
 
     /* The set of class vectors for each individual image (_OMEGA_k) */
-    val trainClassPatternVectors : Array[(FaceImage, RealVector)] = trainFaceImages map { faceImage =>
+    val trainClassPatternVectors: Array[(FaceImage, RealVector)] = trainFaceImages map { faceImage =>
       (faceImage, EigenFaces.computeFaceClassWeightVector(faceImage, trainMeanPixelVector, eigenFaceArray))
     }
 
-
     /* The pattern vector for every test face image (_OMEGA_) */
-    val testFacePatternVectors : Array[(FaceImage, RealVector)] = testFaceImages map { faceImage =>
+    val testFacePatternVectors: Array[(FaceImage, RealVector)] = testFaceImages map { faceImage =>
       (faceImage, EigenFaces.computeFaceClassWeightVector(faceImage, trainMeanPixelVector, eigenFaceArray))
     }
 
@@ -135,24 +145,23 @@ class FacialRecognition{
       val faceSpaceProjectionDistance = sqrt(faceSpaceProjectionMagnitude)
 
 
-      if(faceSpaceProjectionDistance < MAX_PROJECTION_MAGNITUDE
+      if (faceSpaceProjectionDistance < MAX_PROJECTION_MAGNITUDE
         && classVectorMagnitude._2 < MAX_ALLOWABLE_FACE_CLASS_DISTANCE) {
         writeImage(testPatternVectorPair._1.image, "images/testFaces/matched/" + testPatternVectorPair._1.fileName)
       }
       else {
         writeImage(testPatternVectorPair._1.image, "images/testFaces/unmatched/" + testPatternVectorPair._1.fileName)
       }
-
     }
   }
 
-  def writeFaceImagesToFile(trainFaceImages: Array[FaceImage], folder : String) {
+  def writeFaceImagesToFile(trainFaceImages: Array[FaceImage], folder: String) {
     trainFaceImages foreach { faceImage =>
       writeImage(faceImage.image, folder + faceImage.fileName)
     }
   }
 
-  private def writeEigenFacesToFile(eigenFaceArray: Array[EigenFace]) {
+  private def writeEigenFacesToFile(eigenFaceArray: Array[EigenFace]) = {
     /* Write eigenfaces out to file for sanity checking */
     for ((eigenFace, idx) <- eigenFaceArray.view.zipWithIndex) {
       val eigenFaceBufferedImage = ImageUtil.reconstructImage(eigenFace.faceMatrix.getColumn(0),
@@ -163,9 +172,9 @@ class FacialRecognition{
   }
 }
 
-case class FaceImage(fileName : String, image : BufferedImage) {
+case class FaceImage(fileName: String, image: BufferedImage) {
   //pixelMatrix
-  def pixelVector : RealVector = new ArrayRealVector(
+  def pixelVector: RealVector = new ArrayRealVector(
     ImageUtil.getNormalizedImagePixels(image, FacialRecognition.IMAGE_WIDTH, FacialRecognition.IMAGE_HEIGHT))
 }
 
