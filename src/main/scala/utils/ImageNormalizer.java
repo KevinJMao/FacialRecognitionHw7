@@ -1,7 +1,7 @@
 package utils;
 
-import java.awt.image.*;
-
+import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 
 /**
  * Normalizes a colored image.
@@ -88,5 +88,4 @@ public class ImageNormalizer {
         image.setData(r);
         return image;
     }
-
 }

@@ -13,79 +13,13 @@ import scala.util.{Failure, Random, Success, Try}
 
 class FacialRecognition {
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
-  private var eigenface: Option[BufferedImage] = None
-
-
   private val TRAINING_SAMPLE = 20
   private val MATCH_AGAINST_X_FACES = 20
   private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
   private val RNG = Random
   private val MAX_PROJECTION_MAGNITUDE = 5e13
-
   private val EIGENFACE_FILE = "eigenface"
-
-  private def loadImage(file: File): Option[BufferedImage] = {
-    Try {
-      ImageIO.read(file)
-    } match {
-      case Success(image) => Some(image)
-      case Failure(e) =>
-        logger.error("Exception thrown while loading image: {}", e)
-        None
-    }
-  }
-
-  private def writeEigenface(image: BufferedImage, indexNumber: Int) = {
-    writeImage(image, "images/eigenFaces/" + EIGENFACE_FILE + "_" + indexNumber + ".jpg")
-  }
-
-  private def writeImage(image: BufferedImage, location: String) = {
-    Try {
-      ImageIO.write(image, "jpg", new File(location))
-    } recover {
-      case e: Throwable => logger.error("Exception thrown while writing image: {}", e)
-    }
-  }
-
-  private def selectRandomFaceImage: Option[FaceImage] = {
-    val imageFile = new File("faces").listFiles()(RNG.nextInt(new File("faces").listFiles().size))
-    loadImage(imageFile) map { image =>
-      FaceImage(imageFile.getName, image)
-    }
-  }
-
-  private def selectNRandomImages(n: Int): Array[FaceImage] = {
-    (for {
-      i <- 1 to n
-    } yield selectRandomFaceImage match {
-        case Some(faceImage) => faceImage
-        case None =>
-          logger.error("Error while loading random training image.")
-          FaceImage("Unavailable Image", new BufferedImage(0, 0, BufferedImage.TYPE_CUSTOM))
-      }).toArray
-  }
-
-  private def createDirectoriesIfNotExists() = {
-    Seq("images", "images/eigenFaces", "images/testFaces", "images/testFaces/matched", "images/testFaces/unmatched",
-      "images/trainingFaces") foreach { path =>
-      val dir = new File(path)
-      dir.exists match {
-        case false => dir.mkdir()
-        case _ =>
-      }
-    }
-  }
-
-  private def resetDirectories(topLevelDirectory: File): Int = {
-    var counter = 0
-    topLevelDirectory.listFiles().foreach {
-      case file: File if file.isDirectory => counter += resetDirectories(file)
-      case other: File =>
-        other.delete()
-        counter += 1
-    }
-    counter
-  }
+  private var eigenface: Option[BufferedImage] = None
 
   def run() = {
     createDirectoriesIfNotExists()
@@ -159,6 +93,69 @@ class FacialRecognition {
     trainFaceImages foreach { faceImage =>
       writeImage(faceImage.image, folder + faceImage.fileName)
     }
+  }
+
+  private def loadImage(file: File): Option[BufferedImage] = {
+    Try {
+      ImageIO.read(file)
+    } match {
+      case Success(image) => Some(image)
+      case Failure(e) =>
+        logger.error("Exception thrown while loading image: {}", e)
+        None
+    }
+  }
+
+  private def writeEigenface(image: BufferedImage, indexNumber: Int) = {
+    writeImage(image, "images/eigenFaces/" + EIGENFACE_FILE + "_" + indexNumber + ".jpg")
+  }
+
+  private def writeImage(image: BufferedImage, location: String) = {
+    Try {
+      ImageIO.write(image, "jpg", new File(location))
+    } recover {
+      case e: Throwable => logger.error("Exception thrown while writing image: {}", e)
+    }
+  }
+
+  private def selectRandomFaceImage: Option[FaceImage] = {
+    val imageFile = new File("faces").listFiles()(RNG.nextInt(new File("faces").listFiles().size))
+    loadImage(imageFile) map { image =>
+      FaceImage(imageFile.getName, image)
+    }
+  }
+
+  private def selectNRandomImages(n: Int): Array[FaceImage] = {
+    (for {
+      i <- 1 to n
+    } yield selectRandomFaceImage match {
+        case Some(faceImage) => faceImage
+        case None =>
+          logger.error("Error while loading random training image.")
+          FaceImage("Unavailable Image", new BufferedImage(0, 0, BufferedImage.TYPE_CUSTOM))
+      }).toArray
+  }
+
+  private def createDirectoriesIfNotExists() = {
+    Seq("images", "images/eigenFaces", "images/testFaces", "images/testFaces/matched", "images/testFaces/unmatched",
+      "images/trainingFaces") foreach { path =>
+      val dir = new File(path)
+      dir.exists match {
+        case false => dir.mkdir()
+        case _ =>
+      }
+    }
+  }
+
+  private def resetDirectories(topLevelDirectory: File): Int = {
+    var counter = 0
+    topLevelDirectory.listFiles().foreach {
+      case file: File if file.isDirectory => counter += resetDirectories(file)
+      case other: File =>
+        other.delete()
+        counter += 1
+    }
+    counter
   }
 
   private def writeEigenFacesToFile(eigenFaceArray: Array[EigenFace]) = {
