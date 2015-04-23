@@ -7,6 +7,8 @@ scalaVersion := "2.10.4"
 resolvers += "Sonatype snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= Seq(
+  "ch.qos.logback" % "logback-classic" % "1.1.3",
+  "org.slf4j" % "slf4j-api" % "1.7.12",
   "com.typesafe.akka"             %% "akka-actor"                 % "2.2.3",
   "com.typesafe.akka"             %% "akka-slf4j"                 % "2.2.3",
   "org.imgscalr"                  %  "imgscalr-lib"               % "4.2",

@@ -16,28 +16,34 @@ class FacialRecognition {
   private val TRAINING_SAMPLE = 20
   private val MATCH_AGAINST_X_FACES = 20
   private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
+  // Corresponds to Epsilon in Turk,Pentland
   private val RNG = Random
   private val MAX_PROJECTION_MAGNITUDE = 5e13
+  // Corresponds to Epsilon_k in Turk,Pentland
   private val EIGENFACE_FILE = "eigenface"
   private var eigenface: Option[BufferedImage] = None
 
   def run() = {
+    logger.info("Resetting output directories...")
     createDirectoriesIfNotExists()
     resetDirectories(new File("images"))
 
     /* Our set of training faces */
+    logger.info("Randomly selecting {} training images from face pool...", TRAINING_SAMPLE)
     val trainFaceImages: Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
-
     writeFaceImagesToFile(trainFaceImages, "images/trainingFaces/")
 
+    logger.info("Randomly selecting {} testing images from face pool...", MATCH_AGAINST_X_FACES)
     /* Our set of testing faces */
     val testFaceImages: Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
 
+    logger.info("Generating Eigefaces...")
     /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison (u_i) */
     val eigenFaceArray: Array[EigenFace] = EigenFaces.computeEigenFaces(trainFaceImages.toArray)
-
     writeEigenFacesToFile(eigenFaceArray)
 
+
+    logger.info("Running recognition algorithm against test faces...")
     /* A matrix of the pixel intensity values of each image. Each column corresponds to a single image. (Set of all _GAMMA_) */
     val trainPixelMatrix: RealMatrix = EigenFaces.convertImagesToPixelMatrix(trainFaceImages)
 
@@ -81,9 +87,11 @@ class FacialRecognition {
 
       if (faceSpaceProjectionDistance < MAX_PROJECTION_MAGNITUDE
         && classVectorMagnitude._2 < MAX_ALLOWABLE_FACE_CLASS_DISTANCE) {
+        logger.info("{} resulted in MATCH.", testPatternVectorPair._1.fileName)
         writeImage(testPatternVectorPair._1.image, "images/testFaces/matched/" + testPatternVectorPair._1.fileName)
       }
       else {
+        logger.info("{} resulted in NO MATCH.", testPatternVectorPair._1.fileName)
         writeImage(testPatternVectorPair._1.image, "images/testFaces/unmatched/" + testPatternVectorPair._1.fileName)
       }
     }
