@@ -3,7 +3,12 @@
 A facial recognition program based on Eigenfaces.
 
 # Documentation
-
+* All 153 face images used are from the [Faces94](http://cswww.essex.ac.uk/mv/allfaces/faces94.html) face collection.
+* 30 faces are randomly selected from the pool of 153 faces to be used as the training set.
+* 30 faces are randomly selected to be used as the testing set.
+* Only the top 5 Eigenfaces (largest associated Eigenvector) are selected for use in recognition.
+* The maximum allowed distance an image may have from any face class (**&theta;<sub>k</sub>**) is equal to **5 x 10<sup>13</sup>** in order to qualify as a match.
+* The maximum allowed distance an image may have to the face space (**&epsilon;**) is equal to **100**.
 
 # Usage
 ## Compile
@@ -28,3 +33,4 @@ George Mason University, [kmao@masonlive.gmu.edu](mailto:kmao@masonlive.gmu.edu)
 
 # References
 [Eigenfaces for Recognition](http://www.face-rec.org/algorithms/PCA/jcn.pdf), Matthew Turk, Alex Pentland
+

@@ -13,8 +13,8 @@ import scala.util.{Failure, Random, Success, Try}
 
 class FacialRecognition {
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
-  private val TRAINING_SAMPLE = 20
-  private val MATCH_AGAINST_X_FACES = 20
+  private val TRAINING_SAMPLE = 30
+  private val MATCH_AGAINST_X_FACES = 30
   private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
   // Corresponds to Epsilon in Turk,Pentland
   private val RNG = Random
