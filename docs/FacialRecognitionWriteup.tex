@@ -10,19 +10,24 @@
 
 \section*{Background}
 
+The task of reliable and robust facial recognition represents a number of challenging computational, engineering, and practical problems. \textit{Eigenfaces for Recognition} by Matthew Turk and Alex Pentland proposes a novel solution to this problem by deriving common vectors between a set of training faces, named Eigenfaces. These Eigenfaces are used to recognize new faces by calculating the magnitude of distance between the new image's representative image vector and the image vectors of the Eigenfaces.\\
+
+\noindent
+This assignment recreates Turk and Pentland's original facial recognition algorithm, trains it using a randomly selected number of facial images from a well known database, and evaluates recognition against a second set of randomly selected facial images.
+
 \section*{Implementation and Methods Used}
-\begin{comment}
-Platform, methods, and important aspects of it.
-\end{comment}
+The facial recognition engine is implemented in Scala 2.10.4 running on Java 1.7.0\_79. Image processing logic uses common code pulled from the open source project Tinderbox (https://github.com/crockpotveggies/tinderbox). Eigenface generation and facial identification matrix computation uses the Apache Commons Math library.
+
+Assumes static faces.
 
 \section*{Testing Methodology}
-\begin{comment}
+
 Testing for both verification and identification
-\end{comment}
+
 
 \section*{Results}
-\begin{comment}
+
 Overall error for each phase and how this changes with changing certain parameters of the algorithm
-\end{comment}
+
 
 \end{document}
