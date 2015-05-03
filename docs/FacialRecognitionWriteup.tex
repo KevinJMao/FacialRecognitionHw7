@@ -6,7 +6,7 @@
 \begin{document}
 \title{CS 580 Homework 7}
 \author{Kevin Mao}
-\date{April 30, 2015}
+\date{May 1, 2015}
 \maketitle
 
 \section*{Background}
@@ -34,7 +34,7 @@ A^TAt_i &= \mu_it_i
 \intertext{Premultiplying both sides of the equation yields (6), which is equivalent to the the eigenvalue/eigenvector pairs of (4), where the eigenvector is equal to $Av_i$.}
 AA^TAv_i &= \mu_iAv_i
 \end{align}
-
+\noindent
 The set of eigenvalue/eigenvector pairs $(\mu_i, Av_i)$ has a size of $N^2$. However only $(M-1)$ pairs have a nonzero eigenvalue. From these $(M-1)$ we select the $M'$ pairs containing the largest eigenvalues, where $M' < (M-1)$ is some number of eigenfaces to use for identification/recognition. These form the set of eigenfaces $u_1, u_2, ..., u_M'$. 
 
 \section*{Classifying a Face Image}
@@ -52,8 +52,10 @@ Any input image, $\uptau$, can be transformed into a set of weights representing
 \epsilon_k^2 &= ||(\Omega - \Omega_k)||^2
 \end{align}
 
-Given this minimum distance and some preconfigured threshold $\Theta_k$, we can determine whether the input image maps closely to one of the faces in our training set.
+\noindent
+Given this minimum distance and some preconfigured threshold $\Theta_k$, we can determine whether the input image maps closely to one of the faces in our training set.\\
 
+\noindent
 Even though we have identified which face in the training set most closely maps to the input image, many images will map to the training faces to some degree under $\Theta_k$. The second part of classification, identification of faces, is described in the next section.
 
 \subsection*{Identifying Faces}
@@ -64,26 +66,25 @@ In order to ensure that the input image that we are classifying is an actual fac
 For some preconfigured threshold $\Theta$, we can determine whether the input image projects onto "face space", allowing us to determine whether the image we are analyzing is actually a face. If the distance $\epsilon$ is above $\Theta$, we should assume that the input image is not a face.
 
 \section*{Implementation}
-%Assume static faces
-%Details on protocols implementation and use of eigenfaces (e.g., number used).
-%No need for code but reference to data sources and software used expected.
-
 The facial recognition engine is implemented in Scala 2.10.4 running on Java 1.7.0\_79. Image processing logic uses common code pulled from the open source project Tinderbox (https://github.com/crockpotveggies/tinderbox). Eigenface generation and facial identification matrix computation uses the Apache Commons Math library.
 
 \section*{Testing}
 %Implement (A) verification; and (B) identification and report on performance.
-Testing for both verification and identification
+The Faces94 collection maintained by the School of Computer Science and Electronic Engineering at the University of Essex was used as the pool of faces for both training and testing. For each individual subject, the Faces94 collection contained 16 images of that subject, each with minor varations in position, facial expression, etc. These images were included in the pool of faces. In addition, stock images of nonhuman faces (e.g birds, clouds, cars, etc.) were included to test for face identification.\\
 
+\noindent
+For each run, 30 human faces were randomly selected from the pool of faces to be used as the training set, and 30 human faces and nonface images were randomly selected to be used as the testing set. Given 153 individuals and some miscellaneous , most runs consisted of around 3-5 overlapping samples between the training set and testing set, as well as 2-3 images of nonhuman faces.. This allows for more robust testing of both the facial recognition and identification algorithms, as each run will have a more diverse set of training/testing inputs and varying expected outputs.
 
 \section*{Results}
+%Overall error for each phase and how this changes with changing certain parameters of the algorithm
+Based on empirical testing, the magnitude threshold for the minimum $\Theta_k$ was set to $2.0*10^{26}$ for projecting an input image onto a specific face class. Input images above this threshold are considered to be unrecognized. The maximum allowed distance $\Theta$ between an input image and its Eigenvalue projected representation was set to $1.0*10^{13}$. Input images with a distance above this threshold are determined to not be images of human faces.\\
 
-Overall error for each phase and how this changes with changing certain parameters of the algorithm
+\noindent
+Error rates were calculated over 30 runs, each of which tested against 30 randomly selected face/nonface images.\\
+ 
+\noindent
+Of 900 test images, 884 were identified correctly, yielding an overall error rate of 1.78\%. Of the 16 test images that were misidentified, 10 were nonface images identified as human face images and 6 were human face images identified as nonface images. Increasing the threshold $\Theta$ yielded fewer nonface images that were identified as human faces, but also resulted in more human face images being identified as nonhuman.\\
 
-
-
-
-
-
-
-
+\noindent
+Of 837 human faces that were classified and identified as human faces, 655 were classified correctly as recognized or not recognized, yielding an overall error rate of 78.3\%. Of the 182 human faces that were misclassified, 162 were faces which were part of the training set that were not recognized and 20 were faces which were not part of the training set that were mistakenly recognized. This larger proportion of false negatives is likely attributed to a combination of the variance between the training faces and the testing face for a given individual subject, as well as possibly the need for more than 10 Eigenface vectors to sufficiently recognize an individual. It is likely that the combination of increasing the number of Eigenfaces and increasing the magnitude threshold $\Theta_k$ would decrease the number of false negatives at the cost of an increased number of false positives.
 \end{document}

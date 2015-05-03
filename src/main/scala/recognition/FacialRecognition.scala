@@ -13,7 +13,7 @@ import scala.util.{Failure, Random, Success, Try}
 
 class FacialRecognition {
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
-  private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
+  private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 2e13
   // Corresponds to Epsilon in Turk,Pentland
   private val RNG = Random
   private val MAX_PROJECTION_MAGNITUDE = 5e13
@@ -198,7 +198,7 @@ case class FaceImage(fileName: String, image: BufferedImage) {
 }
 
 object FacialRecognition {
-  val SELECT_TOP_N_EIGENFACES = 5
+  val SELECT_TOP_N_EIGENFACES = 10
   val IMAGE_WIDTH = 180
   val IMAGE_HEIGHT = 200
 }
