@@ -2,6 +2,7 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
+\usepackage{upgreek}
 \begin{document}
 \title{CS 580 Homework 7}
 \author{Kevin Mao}
@@ -15,19 +16,74 @@ The task of reliable and robust facial recognition represents a number of challe
 \noindent
 This assignment recreates Turk and Pentland's original facial recognition algorithm, trains it using a randomly selected number of facial images from a well known database, and evaluates recognition against a second set of randomly selected facial images.
 
-\section*{Implementation and Methods Used}
+\section*{Generating Eigenfaces}
+Let each image be a training set of $M$ distinct $N$ by $N$ pixel resolution images. For the purposes of simplicity, we convert each of these images into greyscale intensity values. Accounting for color during Eigenface generation is an area of future enhancment. Each of these $N$ by $N$ images are represented as a one dimensional array of values of length $N^2$. 
+
+\begin{align}
+\intertext{Let the set of one dimensional arrays representing the greyscale training face images be represented as (1).}
+\uptau &= \uptau_1, \uptau_2, ..., \uptau_M
+\intertext{The average face image (2) can be defined as a one dimensional array of size $N$ with the value at each index equal to the average of pixel value of the training faces at that index.}
+\uppsi &= \frac{1}{M}\sum_{n=1}^{M}(\uptau_n)
+\intertext{We can then calculate a set of nomralized pixel vectors (3) representing each training face image}
+\upphi_i &= \uptau_i - \uppsi
+\intertext{The naive approach to generating Eigenfaces from these normalized vectors would be to generate the covariance matrix (4) and derive the resultant $N^2$ eigenvalue/eigenvector pairs.}
+C &= \frac{1}{M}\sum_{n=1}^{M}(\upphi_n\upphi_n^T)
+\\&= AA^T
+\intertext{This approach, however, becomes intractable as the generated covariance matrix is of size $N^2$ by $N^2$. For example, given a set of 256 by 256 greyscale training face images, where each pixel intensity value is represented as a 4-byte integer, the covariance matrix alone would require 16 gigabytes of memory. Turk and Pentland propose a more scalable solution based on the assumption that if $M << N^2$, only $M-1$ out of $N$ eigenvectors will be meaningful. Consider the eigenvalues $\mu_i$ and eigenvectors $v_i$ of $A^TA$:}
+A^TAt_i &= \mu_it_i
+\intertext{Premultiplying both sides of the equation yields (6), which is equivalent to the the eigenvalue/eigenvector pairs of (4), where the eigenvector is equal to $Av_i$.}
+AA^TAv_i &= \mu_iAv_i
+\end{align}
+
+The set of eigenvalue/eigenvector pairs $(\mu_i, Av_i)$ has a size of $N^2$. However only $(M-1)$ pairs have a nonzero eigenvalue. From these $(M-1)$ we select the $M'$ pairs containing the largest eigenvalues, where $M' < (M-1)$ is some number of eigenfaces to use for identification/recognition. These form the set of eigenfaces $u_1, u_2, ..., u_M'$. 
+
+\section*{Classifying a Face Image}
+\subsection*{Recognizing a Face Image}
+Any input image, $\uptau$, can be transformed into a set of weights representing the contribution of each Eigenface image towards forming the original input image.
+
+\begin{align}
+\omega_k &= u_k^T(\uptau - \uppsi)
+\intertext{The weights form the vector $\upomega^T$ that represents the contribution of each Eigenface image towards forming the original input image.}
+\Omega^T &= \{\omega_1, \omega_2, ..., \omega_{M'}\}
+\intertext{For each training face image, we derive its corresponding vector of Eigenface weights, $\Omega_k$, to be used for recognition. Turk and Pentland refer to this as a "face class".}
+\Omega_k &= \{\omega_{k,1}, \omega_{k,2}, ..., \omega_{k, M'}\}
+\\\omega_{k,i} &= u_i^T(\uptau - \Psi)
+\intertext{Given the input image vector $\uptau$, we map it to the face class that provides the best description of the input image by calculating the Euclidean distance between its weight vector $\Omega$ and each of the face classes and select the face class yielding the minimum distance.}
+\epsilon_k^2 &= ||(\Omega - \Omega_k)||^2
+\end{align}
+
+Given this minimum distance and some preconfigured threshold $\Theta_k$, we can determine whether the input image maps closely to one of the faces in our training set.
+
+Even though we have identified which face in the training set most closely maps to the input image, many images will map to the training faces to some degree under $\Theta_k$. The second part of classification, identification of faces, is described in the next section.
+
+\subsection*{Identifying Faces}
+In order to ensure that the input image that we are classifying is an actual face (as opposed to Bart Simpson), Turk and Pentland propose a comparison between the original input image and a reconstructed projection image built from the vector of Eigenfaces $u_k$ and their corresponding weights, $\omega_k$. From this, the squared distance between the mean-adjusted input image and the reconstructed projection can determines how closely the input maps to our set of training faces (13).
+\begin{align}
+\epsilon^2 &= ||\Psi - \Psi_f||^2
+\end{align}
+For some preconfigured threshold $\Theta$, we can determine whether the input image projects onto "face space", allowing us to determine whether the image we are analyzing is actually a face. If the distance $\epsilon$ is above $\Theta$, we should assume that the input image is not a face.
+
+\section*{Implementation}
+%Assume static faces
+%Details on protocols implementation and use of eigenfaces (e.g., number used).
+%No need for code but reference to data sources and software used expected.
+
 The facial recognition engine is implemented in Scala 2.10.4 running on Java 1.7.0\_79. Image processing logic uses common code pulled from the open source project Tinderbox (https://github.com/crockpotveggies/tinderbox). Eigenface generation and facial identification matrix computation uses the Apache Commons Math library.
 
-Assumes static faces.
-
-\section*{Testing Methodology}
-
+\section*{Testing}
+%Implement (A) verification; and (B) identification and report on performance.
 Testing for both verification and identification
 
 
 \section*{Results}
 
 Overall error for each phase and how this changes with changing certain parameters of the algorithm
+
+
+
+
+
+
 
 
 \end{document}

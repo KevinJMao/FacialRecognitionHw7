@@ -1,7 +1,7 @@
 package recognition
 
 import java.awt.image.BufferedImage
-import java.io.File
+import java.io.{FileFilter, File}
 import javax.imageio.ImageIO
 
 import org.apache.commons.math3.linear.{ArrayRealVector, RealMatrix, RealVector}
@@ -13,8 +13,6 @@ import scala.util.{Failure, Random, Success, Try}
 
 class FacialRecognition {
   private val logger = LoggerFactory.getLogger(classOf[FacialRecognition])
-  private val TRAINING_SAMPLE = 30
-  private val MATCH_AGAINST_X_FACES = 30
   private val MAX_ALLOWABLE_FACE_CLASS_DISTANCE = 100.0
   // Corresponds to Epsilon in Turk,Pentland
   private val RNG = Random
@@ -23,19 +21,22 @@ class FacialRecognition {
   private val EIGENFACE_FILE = "eigenface"
   private var eigenface: Option[BufferedImage] = None
 
+  private val TRAINING_FACES_DIRECTORY: String = "trainingFaces"
+  private val TESTING_FACES_DIRECTORY: String = "testingFaces"
+
+
   def run() = {
     logger.info("Resetting output directories...")
     createDirectoriesIfNotExists()
     resetDirectories(new File("images"))
 
     /* Our set of training faces */
-    logger.info("Randomly selecting {} training images from face pool...", TRAINING_SAMPLE)
-    val trainFaceImages: Array[FaceImage] = selectNRandomImages(TRAINING_SAMPLE)
-    writeFaceImagesToFile(trainFaceImages, "images/trainingFaces/")
+    logger.info("Retrieving training images from {} directory", TRAINING_FACES_DIRECTORY)
+    val trainFaceImages: Array[FaceImage] = retrieveFacesFromDirectory(TRAINING_FACES_DIRECTORY)
 
-    logger.info("Randomly selecting {} testing images from face pool...", MATCH_AGAINST_X_FACES)
+    logger.info("Retrieving testing images from {} directory", TESTING_FACES_DIRECTORY)
     /* Our set of testing faces */
-    val testFaceImages: Array[FaceImage] = selectNRandomImages(MATCH_AGAINST_X_FACES)
+    val testFaceImages: Array[FaceImage] = retrieveFacesFromDirectory(TESTING_FACES_DIRECTORY)
 
     logger.info("Generating Eigefaces...")
     /* An array of the top SELECT_TOP_N_EIGENFACES to use as comparison (u_i) */
@@ -144,9 +145,22 @@ class FacialRecognition {
       }).toArray
   }
 
+  private def retrieveFacesFromDirectory(dir : String) : Array[FaceImage] = {
+    (for {
+        file <- new File(dir).listFiles(new FileFilter {
+          override def accept(pathname: File): Boolean = !pathname.getName.endsWith(".DS_Store")
+        })
+      } yield loadImage(file).map(image => FaceImage(file.getName, image)) match {
+        case Some(faceImage) => faceImage
+        case None =>
+          logger.error("Error while loading random training image.")
+          FaceImage("Unavailable Image", new BufferedImage(0, 0, BufferedImage.TYPE_CUSTOM))
+      }).toArray
+  }
+
   private def createDirectoriesIfNotExists() = {
-    Seq("images", "images/eigenFaces", "images/testFaces", "images/testFaces/matched", "images/testFaces/unmatched",
-      "images/trainingFaces") foreach { path =>
+    Seq(TRAINING_FACES_DIRECTORY, TESTING_FACES_DIRECTORY, "images", "images/eigenFaces", "images/testFaces/matched",
+      "images/testFaces/unmatched") foreach { path =>
       val dir = new File(path)
       dir.exists match {
         case false => dir.mkdir()
